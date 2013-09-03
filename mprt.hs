@@ -1,13 +1,9 @@
 import Network.HTTP
+import Network.Browser
 import Data.List (intercalate)
 import Control.Exception (catch)
 
 fastaURL s = "http://www.uniprot.org/uniprot/" ++ s ++ ".fasta"
-
-uniprotURL = "http://www.uniprot.org"
-
-normalizeFastaURL s@('/':_) = uniprotURL ++ s
-normalizeFastaURL s = s
 
 getFastaContent :: String -> String
 getFastaContent = foldl (++) "" . drop 1 . lines
@@ -23,14 +19,11 @@ matchIndices s = map fst $ filter snd $
   where matches = motifMatches s
 
 getContent :: String -> IO String
-getContent s = do
-  result <- simpleHTTP (getRequest s)
-  case result of
-    Right response ->
-      case findHeader HdrLocation response of
-        Just l -> getContent $ normalizeFastaURL l
-        Nothing -> getResponseBody result
-    _ -> error "Connection error"
+getContent s = browse $ do
+  setAllowRedirects True
+  setOutHandler $ const (return ())
+  rsp <- request (getRequest s)
+  return $ rspBody (snd rsp)
 
 main = do
   inpStr <- readFile "mprt.txt"
